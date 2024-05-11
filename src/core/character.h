@@ -4,97 +4,97 @@
 #include <map>
 #include <vector>
 
-using namespace std;
-
-class BasicStats
+namespace character
 {
-private:
-    int health;
-    int mana;
-    int strength;
-    int dexterity;
-    int intelligence;
-    int wisdom;
-    int charisma;
-    int luck;
-};
+    using namespace std;
+    class BasicStats
+    {
+    private:
+        int health;
+        int mana;
+        int strength;
+        int dexterity;
+        int intelligence;
+        int wisdom;
+        int charisma;
+        int luck;
+    };
 
-enum struct DamageType
-{
-    PHYSICAL,
-    MAGICAL,
-    OVER_TIME,
-    TRUE,
-};
+    enum struct DamageType
+    {
+        PHYSICAL,
+        MAGICAL,
+        OVER_TIME,
+        TRUE,
+    };
 
-enum struct SubDamageType
-{
-    /*Physical*/
-    CUTTING,
-    PIERCING,
-    BLUNT,
+    enum struct SubDamageType
+    {
+        /*Physical*/
+        CUTTING,
+        PIERCING,
+        BLUNT,
 
-    /*Elemental Magic*/
-    FIRE,
-    ICE,
-    LIGHTNING,
-    EARTH,
-    WIND,
-    WATER,
+        /*Elemental Magic*/
+        FIRE,
+        ICE,
+        LIGHTNING,
+        EARTH,
+        WIND,
+        WATER,
 
-    /*Magic*/
-    LIGHT,
-    DARK,
-    ARCANE,
+        /*Magic*/
+        LIGHT,
+        DARK,
+        ARCANE,
 
-    /*Over time*/
-    POISON,
-    BURN,
-    FREEZE,
-    BLEED,
-    SHOCK,
+        /*Over time*/
+        POISON,
+        BURN,
+        FREEZE,
+        BLEED,
+        SHOCK,
 
-};
+    };
 
-class DamageStats
-{
-private:
-    int damage;
-    int defense;
-    int resistance;
-};
+    struct DamageStats
+    {
+        int damage;
+        int defense;
+        int resistance;
+    };
 
-class CombatStats
-{
-private:
-    int criticalChance;
-    int criticalDamage;
+    struct CombatStats
+    {
+        int criticalChance;
+        int criticalDamage;
 
-    map<DamageType, DamageStats> damageStats;
-    map<SubDamageType, DamageStats> subDamageStats;
-};
+        map<DamageType, DamageStats> damageStats;
+        map<SubDamageType, DamageStats> subDamageStats;
+    };
 
-class Stats
-{
-    BasicStats basic_stats;
-    CombatStats combat_stats;
-    int current_health;
-    int current_mana;
-    vector<Modifier> modifiers;
-};
+    struct Stats
+    {
+        BasicStats basic_stats;
+        CombatStats combat_stats;
+        int current_health;
+        int current_mana;
+        vector<Modifier> modifiers;
+    };
 
-class Modifier
-{
-private:
-    Stats apply(Stats stats) ;
-    Stats remove(Stats stats);
-};
+    class Modifier
+    {
+    public:
+        Stats apply(Stats stats);
+        Stats remove(Stats stats);
+    };
 
-class Character
-{
-private:
-    BasicStats basicStats;
-    CombatStats combatStats;
-};
+    class Character
+    {
+    private:
+        BasicStats basicStats;
+        CombatStats combatStats;
+    };
+} // namespace character
 
 #endif // CHARACTER_H

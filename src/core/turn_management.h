@@ -5,44 +5,71 @@
 #include <map>
 #include <functional>
 
-using namespace std;
-
-class Side
+namespace turn_management
 {
-public:
-    virtual void act(TurnManager manager) = 0;
-};
+    using namespace std;
 
-class Counter
-{
-public:
-    const int target;
-    int count = 0;
-    function<void()> action;
+    class Player
+    {
+    public:
+        virtual void act(TurnManager manager) = 0;
+    };
 
-    Counter(int target);
-};
+    struct Counter
+    {
+        const int targetCount;
+        int count = 0;
+        function<void()> action;
+    };
 
-class TurnManager
-{
-private:
-    const vector<Side> startingSides;
-    vector<int> sides;
-    int lastSideIndex = -1;
+    class TurnManager
+    {
+    private:
+        const vector<Player *> startingPlayers;
+        vector<Player *> createdPlayers;
+        vector<int> activePlayers;
+        int lastPlayerIndex = -1;
 
-    /*maps sides indices to counters for that side*/
-    map<int, vector<Counter>> counters;
+        /**
+         * maps players indices to counters for that player
+         */
+        map<int, vector<Counter>> counters;
 
-public:
-    TurnManager(const vector<Side> sides);
-    void next();
-    void next(int n);
-    void next(Side side);
+    public:
+        /**
+         * an index is assigned to each player in the order they are given
+         */
+        TurnManager(const vector<Player *> players);
 
-    void remove(Side side);
-    void remove(int index);
+        /**
+         * returns the total amount of players (starting and created players)
+         */
+        int count();
 
-    void addCounter(int side, Counter counter);
-};
+        /**
+         * the next player to act will be the next remaining player
+         */
+        void next();
+        /**
+         * the player with the given index will be the next player to act
+         */
+        void next(int n);
+
+        /**
+         * the player with the given index will be removed from the list of active players
+         */
+        void remove(int index);
+
+        /**
+         * the player will be added to the list of active and created players, at index count()
+         */
+        void add(Player *player);
+
+        /**
+         * adds a counter tht will be updated every turn that the player takes
+         */
+        void addCounter(int player, Counter counter);
+    };
+} // namespace turn_management
 
 #endif // TURN_MANAGEMENT_H
