@@ -1,5 +1,7 @@
 #include <libcombat/combat.hpp>
 
+#include <chrono>
+
 namespace combat
 {
     using namespace character;
@@ -15,8 +17,9 @@ namespace combat
     Combat::Combat(const vector<shared_ptr<Party>> &parties) :
                                                                parties(createCombatParties(parties)),
                                                                manager(find_players(this->parties)),
-                                                               activeCombatants(findActiveCombatants(this->parties)),
-                                                               idCounter(firstFreeId(this->parties))
+                                                               active_combatants(findActiveCombatants(this->parties)),
+                                                               idCounter(firstFreeId(this->parties)),
+                                                               rng(std::chrono::system_clock::now().time_since_epoch().count())
 
     {
     }
@@ -29,7 +32,7 @@ namespace combat
     void Combat::step()
     {
         // PlayerId player = manager.next();
-        // auto combatant = activeCombatants[player];
+        // auto combatant = active_combatants[player];
         // manager.play(player);
     }
 
@@ -40,7 +43,7 @@ namespace combat
         {
             for (const auto &combatant : party.combatants)
             {
-                if (activeCombatants.contains(combatant.id))
+                if (active_combatants.contains(combatant.id))
                 {
                     alive++;
                     break;
@@ -57,7 +60,7 @@ namespace combat
     }
 
     bool Combat::alive(PlayerId id) const {
-        return activeCombatants.contains(id);
+        return active_combatants.contains(id);
     }
 
     const vector<CombatParty> &Combat::getParties() const {
@@ -66,21 +69,31 @@ namespace combat
 
     const Combatant &Combat::getCombatant(PlayerId id) const
     {
-        return *activeCombatants.at(id);
+        return *active_combatants.at(id);
     }
     void Combat::damage(PlayerId target, int damage)
     {
-        if (!activeCombatants.contains(target))
+        if (!active_combatants.contains(target))
         {
             return;
         }
-        Combatant *combatant = activeCombatants.at(target);
+        Combatant *combatant = active_combatants.at(target);
         combatant->currentStats.current_health -= damage;
         if (combatant->currentStats.current_health <= 0)
         {
-            activeCombatants.erase(target);
+            active_combatants.erase(target);
             manager.deactivate(target);
         }
+    }
+
+    void Combat::spend_mana(PlayerId target, int mana) {
+        if (!active_combatants.contains(target))
+        {
+            return;
+        }
+        Combatant *combatant = active_combatants.at(target);
+        combatant->currentStats.current_mana -= mana;
+        combatant->currentStats.current_mana = max(combatant->currentStats.current_mana, 0);
     }
 
     static int basic_attack_damage(const Stats &attacker, const Stats &target)
@@ -94,9 +107,26 @@ namespace combat
         return max(attack - defense, 0);
     }
 
-    static AttackResult _basic_attack(const Combatant &attacker, const Combatant &target)
+    static bool critical_hit(const Combatant &attacker, const Combatant &target, std::minstd_rand rng)
+    {
+        int luck = attacker.currentStats.basic_stats.luck;
+        int crit = attacker.currentStats.combat_stats.critical_chance * luck;
+        return rng() % 100 < crit;
+    }
+
+    static AttackResult _basic_attack(const Combatant &attacker, const Combatant &target, std::minstd_rand rng)
     {
         int damage = basic_attack_damage(attacker.currentStats, target.currentStats);
+
+        if (critical_hit(attacker, target, rng))
+        {
+            int crit_damage = attacker.currentStats.combat_stats.critical_damage;
+            return {
+                .message = AttackMessage::CRITICAL_HIT,
+                .damage = crit_damage * damage,
+            };
+        }
+
         return {
             .message = AttackMessage::HIT,
             .damage = damage,
@@ -110,14 +140,14 @@ namespace combat
                 .message = AttackMessage::ERROR_TARGET_ALLY,
             };
         }
-        if (!activeCombatants.contains(attacker) || !activeCombatants.contains(target))
+        if (!active_combatants.contains(attacker) || !active_combatants.contains(target))
         {
             return {
                 .message = AttackMessage::ERROR_TARGET_NOT_FOUND
             };
         }
-        Combatant &attackerCombatant = *activeCombatants.at(attacker);
-        Combatant &targetCombatant = *activeCombatants.at(target);
+        Combatant &attackerCombatant = *active_combatants.at(attacker);
+        Combatant &targetCombatant = *active_combatants.at(target);
 
         if (attackerCombatant.party == targetCombatant.party)
         {
@@ -131,13 +161,73 @@ namespace combat
                 .message = AttackMessage::ERROR_TARGET_DEAD
             };
         }
-        AttackResult result = _basic_attack(attackerCombatant, targetCombatant);
+        AttackResult result = _basic_attack(attackerCombatant, targetCombatant, rng);
         this->damage(target, result.damage);
         return result;
     }
 
-    void Combat::use_ability(PlayerId attacker, const Ability &ability, PlayerId target)
+    static DamageAbilityResult _damageAbility(const Combatant &attacker, const DamageAbility &ability, const Combatant &target, std::minstd_rand rng)
     {
+        int damage = ability.damage;
+        if (critical_hit(attacker, target, rng))
+        {
+            int crit_damage = attacker.currentStats.combat_stats.critical_damage;
+            damage *= crit_damage;
+            return {
+                .message = DamageAbilityMessage::CRITICAL_HIT,
+                .damage = damage,
+                .damageType = ability.damage_type,
+                .subDamageType = ability.sub_damage_type,
+            };
+        }
+
+        return {
+            .message = DamageAbilityMessage::HIT,
+            .damage = damage,
+            .damageType = ability.damage_type,
+            .subDamageType = ability.sub_damage_type,
+        };
+    } 
+
+    DamageAbilityResult Combat::use_ability(PlayerId attacker, const DamageAbility &ability, PlayerId target)
+    {
+        if (attacker == target)
+        {
+            return {
+                .message = DamageAbilityMessage::ERROR_TARGET_SELF,
+            };
+        }
+        if (!active_combatants.contains(attacker) || !active_combatants.contains(target))
+        {
+            return {
+                .message = DamageAbilityMessage::ERROR_TARGET_NOT_FOUND
+            };
+        }
+        Combatant &attackerCombatant = *active_combatants.at(attacker);
+        Combatant &targetCombatant = *active_combatants.at(target);
+
+        if (attackerCombatant.party == targetCombatant.party)
+        {
+            return {
+                .message = DamageAbilityMessage::ERROR_TARGET_ALLY
+            };
+        }
+        if (targetCombatant.currentStats.current_health <= 0)
+        {
+            return {
+                .message = DamageAbilityMessage::ERROR_TARGET_DEAD
+            };
+        }
+        if (attackerCombatant.currentStats.current_mana < ability.mana_cost)
+        {
+            return {
+                .message = DamageAbilityMessage::ERROR_NO_MANA
+            };
+        }
+        DamageAbilityResult result = _damageAbility(attackerCombatant, ability, targetCombatant, rng);
+        this->damage(target, result.damage);
+        this->spend_mana(attacker, ability.mana_cost);
+        return result;
     }
 
     PlayerId Combat::start_turn()
@@ -151,15 +241,16 @@ namespace combat
 
     static unordered_map<PlayerId, Combatant *> findActiveCombatants(vector<CombatParty> &parties)
     {
-        unordered_map<PlayerId, Combatant *> activeCombatants;
+        unordered_map<PlayerId, Combatant *> active_combatants;
         for (auto &party : parties)
         {
             for (auto &combatant : party.combatants)
             {
-                activeCombatants.emplace(combatant.id, &combatant);
+                active_combatants.emplace(combatant.id, &combatant);
             }
         }
-        return activeCombatants;
+        active_combatants[0];
+        return active_combatants;
     }
 
     static vector<PlayerId> find_players(const vector<CombatParty> &parties)

@@ -115,7 +115,7 @@ namespace character
     {
         BasicStats basic_stats;
         CombatStats combat_stats;
-        vector<Ability> abilities;
+        vector<DamageAbility> abilities;
     };
 
 } // namespace character

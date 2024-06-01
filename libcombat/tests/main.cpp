@@ -4,6 +4,8 @@
 #include <libcombat/combat.hpp>
 #include <tests/definitions.hpp>
 
+#include <libcombat/basic/limited_stat.hpp>
+
 static void clearScreen()
 {
     std::cout << "\033[2J\033[1;1H";
@@ -107,7 +109,14 @@ int main(int argc, char *argv[])
 
     Combat combat({allies, enemies});
 
-    play(combat);
+    // play(combat);
+
+    typedef libcombat::basic::LimitedValue<int> HealthStat;
+
+    HealthStat health(100, 0, 100);
+    HealthStat health2(100, 0, 100);
+
+    HealthStat health3 = health2 + health;
 
     return EXIT_SUCCESS;
 }

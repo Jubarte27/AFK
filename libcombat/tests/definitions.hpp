@@ -6,7 +6,8 @@ namespace definitions {
     using namespace std;
     using namespace combat;
     using namespace character;
-    CharacterDefinition john_doe = {
+
+    CharacterDefinition john_doe{
         .basic_stats = {
             .health = 1 << 6,
             .mana = 1 << 6,
@@ -19,7 +20,7 @@ namespace definitions {
         },
     };
 
-    CharacterDefinition tank = {
+    CharacterDefinition tank{
         .basic_stats = {
             .health = john_doe.basic_stats.health << 2,
             .mana = john_doe.basic_stats.mana,
@@ -36,7 +37,7 @@ namespace definitions {
         },
     };
 
-    CharacterDefinition mage = {
+    CharacterDefinition mage{
         .basic_stats = {
             .health = john_doe.basic_stats.health >> 1,
             .mana = john_doe.basic_stats.mana << 2,
@@ -50,7 +51,7 @@ namespace definitions {
         .combat_stats = john_doe.combat_stats,
     };
 
-    CharacterDefinition rogue = {
+    CharacterDefinition rogue{
         .basic_stats = {
             .health = john_doe.basic_stats.health,
             .mana = john_doe.basic_stats.mana,
@@ -65,5 +66,32 @@ namespace definitions {
             .critical_chance = john_doe.combat_stats.critical_chance << 4,
             .critical_damage = john_doe.combat_stats.critical_damage << 1,
         },
+        .abilities{
+            stab,
+        },
+    };
+
+    DamageAbility fireball{
+        Ability{
+            .id = 1,
+            .name = "Fireball",
+            .description = "A ball of fire",
+            .cooldown = 1,
+            .mana_cost = 1 << 2,
+        },
+        .damage_type = DamageType::MAGICAL,
+        .sub_damage_type = SubDamageType::FIRE,
+    };
+
+    DamageAbility stab{
+        Ability{
+            .id = 2,
+            .name = "Stab",
+            .description = "A stab",
+            .cooldown = 1,
+            .mana_cost = 0,
+        },
+        .damage_type = DamageType::PHYSICAL,
+        .sub_damage_type = SubDamageType::PIERCING,
     };
 }
